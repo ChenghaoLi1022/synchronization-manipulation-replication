@@ -6,8 +6,6 @@ import os
 # Configuration & Path Setup
 # ==========================================
 
-# Try to use the user's specific download path for convenience.
-# If it doesn't exist (e.g., on a replicator's machine), fall back to the current directory.
 USER_PATH = "/Users/lichenghao/Downloads/"
 if os.path.exists(USER_PATH):
     OUTPUT_DIR = USER_PATH
@@ -15,7 +13,6 @@ else:
     OUTPUT_DIR = os.getcwd()
     print(f"Note: User path not found. Saving figures to current directory: {OUTPUT_DIR}")
 
-# Plotting style for academic figures
 plt.rcParams.update({
     'font.family': 'serif',
     'font.size': 10,
@@ -114,8 +111,8 @@ def calculate_deterrence_threshold(Pi, k, F):
 
 def generate_figure_1():
     """
-    Figure 1: Accuracy of First-Order Approximation.
-    Compares Exact Spread vs. 1st-Order Approx across detection probabilities.
+    Figure 1: Accuracy of First-Order Approximation (Plotting Expansion)
+    Compares the Exact Spread *Expansion* vs. the 1st-Order *Expansion*.
     """
     print("Generating Figure 1...")
     p0_fixed = 0.3
@@ -125,16 +122,20 @@ def generate_figure_1():
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.5), sharey=True)
 
     for i, rho in enumerate(rho_values):
-        exact, approx, _, _ = calculate_spread_metrics(p0_fixed, rho, delta_grid)
+        exact_spreads, _, _, delta_s_approx = calculate_spread_metrics(p0_fixed, rho, delta_grid)
+
+        s_0_baseline = exact_spreads[-1]
+
+        exact_expansion = exact_spreads - s_0_baseline
 
         ax = axes[i]
-        ax.plot(delta_grid, exact, 'o-', markersize=4, label='Exact Spread', color='#1f77b4')
-        ax.plot(delta_grid, approx, 's--', markersize=4, label='1st-Order Approx', color='#ff7f0e')
+        ax.plot(delta_grid, exact_expansion, 'o-', markersize=4, label='Exact Expansion ($\Delta S$)', color='#1f77b4')
+        ax.plot(delta_grid, delta_s_approx, 's--', markersize=4, label='1st-Order Approx ($\epsilon \Xi$)', color='#ff7f0e')
 
         ax.set_title(f'Honest Fraction $\\rho = {rho}$')
         ax.set_xlabel('Detection Probability $\\delta$')
         if i == 0:
-            ax.set_ylabel('Bid-Ask Spread')
+            ax.set_ylabel('Spread Expansion ($\Delta S$)')
         ax.legend()
         ax.grid(True, linestyle=':', alpha=0.6)
 
