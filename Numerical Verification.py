@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from matplotlib import cm
+from mpl_toolkits.mplot3d import Axes3D
 
 # ==========================================
 # Configuration & Path Setup
@@ -41,6 +43,7 @@ def odds_to_prob(odds):
     """Converts odds to probability."""
     return odds / (1.0 + odds)
 
+
 def calculate_spread_metrics(p0, rho, delta, mu=MU, q=Q, phi1=PHI1, phi0=PHI0):
     """
     Computes the Exact Spread, Baseline Spread, and First-Order Approximation.
@@ -62,27 +65,20 @@ def calculate_spread_metrics(p0, rho, delta, mu=MU, q=Q, phi1=PHI1, phi0=PHI0):
 
     # 2. Manipulation Parameters
     epsilon = (1.0 - rho) * (1.0 - delta)
-    # Kappa for truthful coordination (phi1=1, phi0=0) is 1/(rho*q)
-    # General form:
     kappa = phi1 / (rho * q) - phi0 / (rho * (1.0 - q))
 
     # 3. Exact Spread Calculation
-    # Effective Likelihood Ratio for x=1
     Lambda_x_1 = (rho * q + epsilon * phi1) / (rho * (1.0 - q) + epsilon * phi0)
-
-    # Ask Price (Buy order + Positive Content)
     O_ask = O_0 * Lambda_y_plus * Lambda_x_1
     ask_price_exact = odds_to_prob(O_ask)
 
     # Bid Price (Sell order + Negative Content)
-    # Note: Under truthful strategy, Lambda_x(x=0) is the inverse of Lambda_x(x=1)
     O_bid = O_0 * Lambda_y_minus * (1.0 / Lambda_x_1)
     bid_price_exact = odds_to_prob(O_bid)
 
     S_exact = ask_price_exact - bid_price_exact
 
     # 4. First-Order Approximation
-    # Curvature terms (h(p) = p(1-p))
     h_p_plus = p0_plus * (1.0 - p0_plus)
     h_p_minus = p0_minus * (1.0 - p0_minus)
 
@@ -99,10 +95,8 @@ def calculate_deterrence_threshold(Pi, k, F):
     Calculates the dynamic deterrence threshold delta*.
     Formula: delta* = (Pi - k) / (Pi + F)
     """
-    # Avoid division by zero if Pi + F is 0 (unlikely in econ context)
     denom = Pi + F
     val = (Pi - k) / denom
-    # Clip values to [0, 1] for valid probability
     return np.clip(val, 0.0, 1.0)
 
 # ==========================================
@@ -146,6 +140,7 @@ def generate_figure_1():
     plt.savefig(save_path, bbox_inches='tight')
     print(f"Saved: {save_path}")
 
+
 def generate_figure_2():
     """
     Figure 2: Determinants of the Deterrence Threshold (delta*).
@@ -183,10 +178,8 @@ def generate_figure_2():
     axes[2].set_xlabel(r'Detection Penalty ($F$)')
     axes[2].set_title(r'Effect of $F$ on $\delta^*$')
 
-    # Formatting
     for ax in axes:
         ax.grid(True, linestyle=':', alpha=0.6)
-        # Add a reference line for the base case
         base_delta = calculate_deterrence_threshold(Pi_base, k_base, F_base)
         ax.axhline(base_delta, color='gray', linestyle='--', alpha=0.5, label='Base Case')
 
@@ -197,43 +190,53 @@ def generate_figure_2():
     plt.savefig(save_path, bbox_inches='tight')
     print(f"Saved: {save_path}")
 
+
 def generate_figure_3():
     """
-    Figure 3: Prior Insensitivity.
-    Demonstrates that the first-order spread effect is robust to changes in p0.
+    Figure 3: 3D Surface Plot of Spread Change.
+    X-axis: Detection Probability (delta)
+    Y-axis: Prior Belief (p0)
+    Z-axis: Spread Change (Delta S)
+    Demonstrates robustness across the full range of priors.
     """
-    print("Generating Figure 3...")
+    print("Generating Figure 3 (3D Surface)...")
+    from mpl_toolkits.mplot3d import Axes3D
+    from matplotlib import cm
 
     rho_fixed = 0.5
-    delta_grid = np.linspace(0.5, 1.0, 50)
-    p0_values = [0.3, 0.5, 0.7]
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c']
 
-    plt.figure(figsize=(8, 6))
+    delta_vals = np.linspace(0.5, 1.0, 50)
+    p0_vals = np.linspace(0.1, 0.9, 50)
+    DELTA, P0 = np.meshgrid(delta_vals, p0_vals)
 
-    for i, p0 in enumerate(p0_values):
-        # We only need the Delta_S component
-        _, _, _, delta_s = calculate_spread_metrics(p0, rho_fixed, delta_grid)
+    Z = np.zeros_like(DELTA)
 
-        plt.plot(delta_grid, delta_s,
-                 label=f'$p_0 = {p0}$',
-                 linewidth=2.5,
-                 alpha=0.8,
-                 linestyle='-' if i==1 else '--', # Make 0.5 solid, others dashed for visibility
-                 color=colors[i])
+    for i in range(DELTA.shape[0]):
+        for j in range(DELTA.shape[1]):
+            d = DELTA[i, j]
+            p = P0[i, j]
+            _, _, _, delta_s = calculate_spread_metrics(p, rho_fixed, d)
+            Z[i, j] = delta_s
 
-    plt.xlabel(r'Detection Probability $\delta$')
-    plt.ylabel(r'Spread Change $\Delta S$')
-    plt.title(f'Figure 3: Robustness of Spread Effect to Prior $p_0$ ($\\rho={rho_fixed}$)')
-    plt.legend()
-    plt.grid(True, linestyle=':', alpha=0.6)
+    fig = plt.figure(figsize=(10, 7))
+    ax = fig.add_subplot(111, projection='3d')
 
-    # Ensure y-axis starts at 0 to show the magnitude correctly
-    plt.ylim(bottom=0)
+    surf = ax.plot_surface(DELTA, P0, Z, cmap=cm.viridis,
+                           linewidth=0, antialiased=False, alpha=0.9)
 
+    fig.colorbar(surf, shrink=0.5, aspect=10, label=r'Spread Change $\Delta S$')
+
+    ax.set_xlabel(r'Detection Probability $\delta$')
+    ax.set_ylabel(r'Prior Belief $p_0$')
+    ax.set_zlabel(r'Spread Change $\Delta S$')
+
+    ax.view_init(elev=30, azim=135)
+
+    plt.title(f'Figure 3: Robustness to Prior Skewness ($\\rho={rho_fixed}$)')
     plt.tight_layout()
-    save_path = os.path.join(OUTPUT_DIR, "Figure_3_Prior_Invariance.png")
-    plt.savefig(save_path, bbox_inches='tight')
+
+    save_path = os.path.join(OUTPUT_DIR, "Figure_3_3D_Invariance.png")
+    plt.savefig(save_path, bbox_inches='tight', dpi=300)
     print(f"Saved: {save_path}")
 
 # ==========================================
