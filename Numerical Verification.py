@@ -8,7 +8,7 @@ from mpl_toolkits.mplot3d import Axes3D
 # Configuration & Path Setup
 # ==========================================
 
-USER_PATH = "/Users/lichenghao/Downloads/"
+USER_PATH = "./"
 if os.path.exists(USER_PATH):
     OUTPUT_DIR = USER_PATH
 else:
